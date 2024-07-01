@@ -1,30 +1,43 @@
 package tracer
 
 import (
-	"github.com/uber/jaeger-client-go/config"
-	"io"
-	"time"
-
-	"github.com/opentracing/opentracing-go"
+	"context"
+	"fmt"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.18.0"
+	"go.opentelemetry.io/otel/trace"
+	"log"
 )
 
-func NewJaegerTracer(serviceName, agentHostPort string) (opentracing.Tracer, io.Closer, error) {
-	cfg := &config.Configuration{
-		ServiceName: serviceName,
-		Sampler: &config.SamplerConfig{
-			Type:  "const",
-			Param: 1,
-		},
-		Reporter: &config.ReporterConfig{
-			LogSpans:            true,
-			BufferFlushInterval: 1 * time.Second,
-			LocalAgentHostPort:  agentHostPort,
-		},
-	}
-	tracer, closer, err := cfg.NewTracer()
+func NewJaegerTracer(serviceName, collectorEndpoint string) (trace.Tracer, func(), error) {
+	// Configure OTLP HTTP exporter
+	ctx := context.Background()
+	exporter, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpoint(collectorEndpoint), otlptracehttp.WithInsecure())
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create OTLP HTTP exporter: %v", err)
 	}
-	opentracing.SetGlobalTracer(tracer)
+
+	// Create and configure TracerProvider
+	bsp := sdktrace.NewBatchSpanProcessor(exporter)
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSpanProcessor(bsp),
+		sdktrace.WithResource(resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String(serviceName),
+		)),
+	)
+	otel.SetTracerProvider(tp)
+
+	// Function to close the tracer
+	closer := func() {
+		if err := tp.Shutdown(context.Background()); err != nil {
+			log.Fatalf("Failed to stop the tracer provider: %v", err)
+		}
+	}
+
+	tracer := otel.Tracer(serviceName)
 	return tracer, closer, nil
 }

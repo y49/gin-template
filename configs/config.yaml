@@ -44,4 +44,4 @@ Database:
     MaxOpenConns: 30
 
 Jaeger:
-    Host: 127.0.0.1:6831
+    Host: 127.0.0.1:4318

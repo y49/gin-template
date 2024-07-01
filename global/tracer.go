@@ -1,7 +1,9 @@
 package global
 
-import "github.com/opentracing/opentracing-go"
+import (
+	"go.opentelemetry.io/otel/trace"
+)
 
 var (
-	Tracer opentracing.Tracer
+	Tracer trace.Tracer
 )

@@ -8,9 +8,10 @@ import (
 	"net/http"
 	"time"
 
+	_ "gin-template/docs"
 	"github.com/gin-gonic/gin"
+	"github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"github.com/swaggo/gin-swagger/swaggerFiles"
 )
 
 var methodLimiters = limiter.NewMethodLimiter().AddBuckets(
@@ -41,11 +42,9 @@ func NewRouter() *gin.Engine {
 	upload := api.NewUpload()
 	r.POST("/upload/file", upload.UploadFile)
 	r.StaticFS("/static", http.Dir(global.AppSetting.UploadSavePath))
-	r.POST("/auth", api.GetAuth)
 	apiv1 := r.Group("/api/v1")
-	apiv1.Use(middleware.JWT()) //middleware.JWT()
+	apiv1.Use()
 	{
-
 	}
 
 	return r
